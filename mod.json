@@ -1,0 +1,16 @@
+{
+	"Name": "[chaTTS] Chat TTS",
+	"Description": "[@drachenfruchl]\n\nOutput chat using TTS",
+	"LoadPriority": 69420,
+	"Version": "1.0.0",
+	"Scripts": [
+		{
+			"Path": "chaTTS.nut",
+			"RunOn": "CLIENT && MP",
+            "ClientCallback": {
+				"Before": "chaTTS_Init"
+			}
+		}
+	],
+	"ConVars": []
+}
