@@ -1,127 +1,132 @@
 untyped
 global function chaTTS_Init
 
-
-const string URL_LISTENER = "http://127.0.0.1:2222/"
-const string URL_LIBRE = "http://127.0.0.1:3333/"
+const string URL_LISTENER = "http://127.0.0.1:2222/" // has to match url and port as defined in the exe_wrapper
+const table<int, string> voiceIndex = {
+	[0] = "cv_chaTTS_uniform_voice",
+	[1] = "cv_chaTTS_self_voice",
+	[2] = "cv_chaTTS_party_voice",
+	[3] = "cv_chaTTS_friend_voice",
+	[4] = "cv_chaTTS_team_voice",
+	[5] = "cv_chaTTS_opp_voice",
+	[6] = "cv_chaTTS_ally_voice"
+}
 
 void function debugPrint( string text ){
-    printt( "[chaTTS] \x1b[0m" + text )
+	printt( "[chaTTS] " + text )
 }
 
 void function chaTTS_Init(){
-    AddCallback_OnReceivedSayTextMessage( chathook )
-    debugPrint( "Initialized! :-)" )
+	dtool_loadFriendsAndParty() // this requires the dtools !!
+	AddCallback_OnReceivedSayTextMessage( chathook )
+	debugPrint( "Initialized! :-)" )
 }
 
-// void function libreServer( string operation ){
-//     HttpRequest request
-//     request.method = HttpRequestMethod.POST
-//     request.url = URL_LISTENER + operation
+bool function makeTTS( int voiceIndex, string voice, string text ){
+    table state = {
+        finished = false,
+        successful = false
+    }
 
-//     if( operation == "start" ){
-//         // https://docs.libretranslate.com/guides/installation/#arguments
-//         request.queryParameters[ "load-only" ]        <- [ "en,ru,de" ] // Add more languages if you so please
-//         // request.queryParameters[ "frontend-timeout" ] <- [ "500" ]
-//         request.queryParameters[ "threads" ]          <- [ "16" ]
-//     }
+    HttpRequest request
+    request.method = HttpRequestMethod.POST
+    request.url = URL_LISTENER + "/makeTTS"
 
-//     void functionref( HttpRequestResponse ) onSuccess = void function ( HttpRequestResponse response ) : (){
-//         // Request can still be made successfully and return a statuscode indicating an 'error'
-//         // e.g when the libretranslate server is already / not even running and thus return statuscode 418
-//         if( response.statusCode != 200 ){
-//             string msg = "Request was successful but returned a statuscode other than 200"
+	// Send data to get processed
+    request.queryParameters[ "message" ]  <- [ text ]
+	request.queryParameters[ "voice" ] 	  <- [ voice ]
+	request.queryParameters[ "position" ] <- [ voiceIndex.tostring() ]
 
-//             if( response.body.len() == 0 )
-//                 msg += ": " + response.statusCode
+    void functionref( HttpRequestResponse ) onSuccess = void function ( HttpRequestResponse response ) : ( state ){
+        debugPrint( "Request was successful" )
+	
+        state.finished = true
+		if( response.statusCode == 200 )
+			state.successful = true
+		else 
+			state.successful = false
+	}
 
-//             debugPrint( msg )
-//             debugPrint( format( "[%i] %s", response.statusCode, response.body ) )
-//             return
-//         }
+	// Server throws an error if e.g the voice is not valid
+    void functionref( HttpRequestFailure ) onFailure = void function ( HttpRequestFailure failure ) : ( state ){
+        debugPrint( "Request was *not* successful" )
+        debugPrint( format( "[%i] Failed to send request to listener server: %s", failure.errorCode, failure.errorMessage ) )
 
-//         // The response body usually contains information about a taken action
-//         debugPrint( "Request was successful" )
-//         debugPrint( response.body )
-//     }
+        state.finished = true
+		state.successful = false
+    }
 
-//     void functionref( HttpRequestFailure ) onFailure = void function ( HttpRequestFailure failure ) : (){
-//         // This usually occurs because the listen server isnt online
-//         // !! Make sure to start it beforehand !!
-//         debugPrint( "Request was *not* successful" )
-//         debugPrint( format( "[%i] Failed to send request to listener: %s", failure.errorCode, failure.errorMessage ) )
-//     }
+    NSHttpRequest( request, onSuccess, onFailure )
+	
+    while( !state.finished )
+        wait 0
+	
+    return expect bool( state.successful )
+} 
 
-//     NSHttpRequest( request, onSuccess, onFailure )
-// }
+////////////////////////////////////////////////////////////////////////////////////
 
-// string ornull function translateFromTo( string text, string langTo, string langFrom = "auto" ){
-//     table state = {
-//         finished = false,
-//         data = null
-//     }
+int function getVoiceIndexForPlayer( ClClient_MessageStruct ms ){
+	// uniform
+	if( GetConVarBool( "cv_chaTTS_use_uniform_voice" ) )
+		return 0
 
-//     HttpRequest request
-//     request.method = HttpRequestMethod.POST
-//     request.url = URL_LIBRE + "translate"
+	// same priority as ccmuv2
+	// self
+	if( ms.player == GetLocalClientPlayer() )
+		return 1
 
-//     request.headers[ "Content-Type" ] <- [ "application/json" ]
+	// party
+	if( dtool_inParty( ms.player.GetPlayerName() ) )
+		return 2
 
-//     table body = {
-//         [ "q" ] = text,
-//         [ "source" ] = langFrom,
-// 		[ "target" ] = langTo,
-// 		[ "format" ] = "text",
-// 		[ "alternatives" ] = 3,
-// 		[ "api_key" ] = ""
-//     }
-//     request.body = EncodeJSON( body )
+	// friend
+	if( dtool_isFriend( ms.player.GetPlayerName() ) )
+		return 3
 
-//     void functionref( HttpRequestResponse ) onSuccess = void function ( HttpRequestResponse response ) : ( state ){
-//         debugPrint( "Request was successful" )
+	// teamchat
+	if( ms.isTeam )
+		return 4
 
-//         table json = DecodeJSON( response.body )
-//         debugPrint( expect string( json[ "translatedText" ] ) )
-        
-//         state.finished = true
-//         state.data = expect string( json[ "translatedText" ] )
-//     }
+	// opp
+	if( dtool_isEnemy( ms.player ) )
+		return 5
+	else // ally
+		return 6
 
-//     void functionref( HttpRequestFailure ) onFailure = void function ( HttpRequestFailure failure ) : ( state ){
-//         debugPrint( "Request was *not* successful" )
-//         debugPrint( format( "[%i] Failed to send request to libretranslate server: %s", failure.errorCode, failure.errorMessage ) )
+	// Fallback
+	return 0
+}
 
-//         state.finished = true
-//     }
+string function getVoiceFromIndex( int index ){
+	// Get ConVar from voice index
+	if( index in voiceIndex )
+		return GetConVarString( voiceIndex[index] )
 
-//     NSHttpRequest( request, onSuccess, onFailure )
-    
-//     while( !state.finished )
-//         wait 0
-    
-//     return expect string ornull( state.data )
-// } 
+	// Fallback
+	return GetConVarString( "cv_chaTTS_uniform_voice" )
+}
 
-// void function sayIn( string message, string langTo = "ru" ){
-//     thread function() : ( message, langTo ){
-//         string ornull translatedMsg = translateFromTo( message, langTo )
-//         if( !translatedMsg )
-//             return
-        
-//         expect string( translatedMsg )
-//         GetLocalClientPlayer().ClientCommand( "say " + translatedMsg )
-//     }()
-// }
+void function playTTS( int voiceIndex ){
+	GetLocalClientPlayer().ClientCommand( 
+		format( 
+			"playvideo bik_output_pos_%i 1 1", 
+			voiceIndex 
+		) 
+	)
+}
 
-
-////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////
 
 ClClient_MessageStruct function chathook( ClClient_MessageStruct ms ){
-    string ornull translatedMsg = translateFromTo( ms.message, "de" )
-    if( !translatedMsg )
-        return ms
-    expect string( translatedMsg )
+	// Get the right voice for the player and config
+	int voiceIndex = getVoiceIndexForPlayer( ms )
+	string voice = getVoiceFromIndex( voiceIndex )
 
-    ms.message += "\n-> " + translatedMsg
-    return ms
+	// Try to send request to create TTS file
+	bool successful = makeTTS( voiceIndex, voice, ms.message )
+	if( successful )
+		playTTS( voiceIndex )
+
+	return ms
 }

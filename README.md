@@ -1,3 +1,3 @@
 # chaTTS
 
-TTS using the ingame chat as input
+Output the ingame chat using TTS

@@ -6,11 +6,59 @@
 	"Scripts": [
 		{
 			"Path": "chaTTS.nut",
-			"RunOn": "CLIENT && MP",
+			"RunOn": "MP && CLIENT",
             "ClientCallback": {
 				"Before": "chaTTS_Init"
 			}
+		},
+		{
+			"Path": "chaTTSSettings.nut",
+			"RunOn": "UI",
+			"UICallback": {
+				"Before": "chaTTSSettings_Init"
+			}
 		}
 	],
-	"ConVars": []
+	"ConVars": [
+		{
+			"Name": "cv_chaTTS_use_uniform_voice",
+			"DefaultValue": "1",
+			"Flags": 16777216
+		},
+		{
+			"Name": "cv_chaTTS_uniform_voice",
+			"DefaultValue": "en-US-GuyNeural",
+			"Flags": 16777216
+		},
+		{
+			"Name": "cv_chaTTS_team_voice",
+			"DefaultValue": "en-US-GuyNeural",
+			"Flags": 16777216
+		},
+		{
+			"Name": "cv_chaTTS_ally_voice",
+			"DefaultValue": "en-US-GuyNeural",
+			"Flags": 16777216
+		},
+		{
+			"Name": "cv_chaTTS_self_voice",
+			"DefaultValue": "en-US-GuyNeural",
+			"Flags": 16777216
+		},
+		{
+			"Name": "cv_chaTTS_friend_voice",
+			"DefaultValue": "en-US-GuyNeural",
+			"Flags": 16777216
+		},
+		{
+			"Name": "cv_chaTTS_party_voice",
+			"DefaultValue": "en-US-GuyNeural",
+			"Flags": 16777216
+		},
+		{
+			"Name": "cv_chaTTS_opp_voice",
+			"DefaultValue": "en-US-GuyNeural",
+			"Flags": 16777216
+		}
+	]
 }

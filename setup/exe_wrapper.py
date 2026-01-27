@@ -8,13 +8,17 @@ import edge_tts
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse, parse_qs
 
+# Change this path if you have a different installation location
+# escaped backslashes are crucial !!
 MEDIA_FOLDER_PATH = 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Titanfall2\\R2Northstar\\mods\\chatts\\mod\\media'
+HAS_LAUNCHED = False
+SERVER = None
 
-def delete_file(filepath):
+def delete_file(filepath: str):
     if os.path.exists(filepath):
         os.remove(filepath)
 
-def make_filepath(input, position):
+def make_filepath(input: str, position: int):
     if input:
         return MEDIA_FOLDER_PATH + f'\\bik_input_pos_{position}.mp3'
     else:
@@ -27,13 +31,12 @@ def get_radvideo():
             return filename
     return None
 
-async def convert_to_bik(input, position):
+async def convert_to_bik(input: str, position: int):
     radvideo = get_radvideo()
     if not radvideo:
-        return 
+        return False
     
     output = make_filepath(False, position)
-    # print('TTS OUTPUT FILEPATH: ' + output)
 
     startupinfo = subprocess.STARTUPINFO()
     startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
@@ -69,20 +72,31 @@ async def convert_to_bik(input, position):
     if process.poll() is None:
         process.terminate()
 
-    print('FINISH')
     return True
 
-async def generate_tts(text, voice, position):
-    communicate = edge_tts.Communicate(text, voice)
+async def generate_tts(text: str, voice: str, position: int):
+    try:
+        communicate = edge_tts.Communicate(text, voice)
+    except ValueError:
+        print('Not a valid voice')
+        return False
+    
     path = make_filepath(True, position)
-    print('TTS INPUT FILEPATH: ' + path)
 
-    await communicate.save(path)
+    try:
+        await communicate.save(path)
+    except edge_tts.exceptions.NoAudioReceived:
+        print('No audio received!')
+        return False
+
     success = await convert_to_bik(path, position)
-    delete_file(path)
-    return True if success else False
 
-# asyncio.run(generate_tts('h', 'de-DE-ConradNeural', 0))
+    try:
+        delete_file(path)
+    except FileNotFoundError:
+        print('Could not delete temp .mp3 file')
+
+    return True if success else False
 
 ###########################################################################################################################
 
@@ -92,51 +106,60 @@ class Server(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = urlparse(self.path).path
-        print(path)
 
         match path:
             case '/makeTTS':
                 parsed = urlparse(self.path)
                 params = parse_qs(parsed.query)
-         
-                message = params['message'][0]
-                voice = params['voice'][0]
-                position = int(params['position'][0])
 
-                print( type(message) )
-                print( type(voice) )
-                print( type(position) )
+                # print(params)
+                # print(type(params['message'][0]))
+                # print(type(params['voice'][0]))
+                # print(type(int(params['position'][0])))
+
+                try:
+                    message = params['message'][0]
+                    voice = params['voice'][0]
+                    position = int(params['position'][0])
+                except:
+                    print('Error while converting query types')
+                    self.send_response(400)
+                    self.end_headers()
+                    return 
                 
                 success = asyncio.run(generate_tts(message, voice, position))
+
+                if success:
+                    print('Successfully created TTS')
+                    self.send_response(200)
+                else:
+                    print('Failed to create TTS')
+                    self.send_response(400)
                 
-                self.send_response(200 if success else 404)
                 self.end_headers()
-
                 return
-
+            
             case _:
-                self.send_response(400)
+                print('Not a valid path: ' + path)
+                self.send_response(404)
                 self.end_headers()
-                print('huh?')
                 return
 
 ###########################################################################################################################
 
-def parse_args(args):
-    parsed = []
-    
-    for k, v in args.items():
-        parsed.append(f'--{k}')
-        parsed.append(''.join(v))
-
-    return parsed
-
-###########################################################################################################################
+def is_game_open():
+    try:
+        return 'Titanfall2.exe' in subprocess.check_output('tasklist').decode('UTF-8')
+    except subprocess.CalledProcessError:
+        print('subprocess.CalledProcessError')
+        return True
 
 def launch_game():
-    if 'Titanfall2.exe' in subprocess.check_output('tasklist').decode('UTF-8'):
-        print('Titanfall is already running!')
-        return False
+    global HAS_LAUNCHED
+    if HAS_LAUNCHED:
+        if is_game_open():
+            print('Titanfall is already running!')
+            return False
 
     try:
         args = sys.argv[1:]
@@ -152,14 +175,36 @@ def launch_game():
 # http://127.0.0.1:2222
 def start_listener():
     print('Listening on http://127.0.0.1:2222')
-    HTTPServer(('127.0.0.1', 2222), Server).serve_forever()
+
+    global SERVER 
+    SERVER = HTTPServer(('127.0.0.1', 2222), Server)
+    SERVER.serve_forever()
+
     print('Listener closed')
+
+def close_server_monitor():
+    while True:
+        time.sleep(5)
+        if not is_game_open():
+            print('Titanfall2.exe is not opened, closing server')
+            try:
+                global SERVER
+                SERVER.shutdown()
+            except:
+                pass
+            break
 
 ###########################################################################################################################
 
 def main():
-    # if launch_game():
-        threading.Thread(target=start_listener).start()
+    if launch_game():
+        global HAS_LAUNCHED
+        HAS_LAUNCHED = True
+
+        threading.Thread(target=close_server_monitor).start()
+        start_listener()
+        print('Script finished')
     
 if __name__ == '__main__':
     main()
+    input()
