@@ -25,6 +25,7 @@ def make_filepath(input: str, position: int):
         return MEDIA_FOLDER_PATH + f'\\bik_output_pos_{position}.bik'
 
 def get_radvideo():
+    # Check if valid executable is present in current directory
     for filename in ['radvideo32.exe', 'radvideo64.exe']:
         filename = MEDIA_FOLDER_PATH + '\\' + filename 
         if os.path.exists(filename):
@@ -32,15 +33,18 @@ def get_radvideo():
     return None
 
 async def convert_to_bik(input: str, position: int):
+    # Get executable filename (if present)
     radvideo = get_radvideo()
     if not radvideo:
         return False
     
     output = make_filepath(False, position)
 
+    # Dont show external window
     startupinfo = subprocess.STARTUPINFO()
     startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 
+    # Run the conversion command in the background
     process = subprocess.Popen(
         [radvideo, 'Bink', '/O', input, output],
         startupinfo=startupinfo,
@@ -50,9 +54,11 @@ async def convert_to_bik(input: str, position: int):
     timeout = 4.0
     start_time = time.time()
 
+    # Get latest time of change of the output file
     old_mtime = os.path.getmtime(output) if os.path.exists(output) else 0
     
     while True:
+        # If the conversion takes longer than the set timeout (4.0s), kill the process prematurely
         if (time.time() - start_time) > timeout:
             process.kill()
             return False
@@ -63,18 +69,21 @@ async def convert_to_bik(input: str, position: int):
             new_mtime = os.path.getmtime(output)
             new_size = os.path.getsize(output)
             
+            # Exit if the file hasnt been changed in 0.1s and has thus finished converting
             if new_mtime > old_mtime and new_size > 0:
                 await asyncio.sleep(0.1)
                 stable_size = os.path.getsize(output)
                 if stable_size == new_size:
                     break
     
+    # End the process if it is still running
     if process.poll() is None:
         process.terminate()
 
     return True
 
 async def generate_tts(text: str, voice: str, position: int):
+    # Get TTS
     try:
         communicate = edge_tts.Communicate(text, voice)
     except ValueError:
@@ -83,14 +92,17 @@ async def generate_tts(text: str, voice: str, position: int):
     
     path = make_filepath(True, position)
 
+    # Save previously generated TTS to file
     try:
         await communicate.save(path)
     except edge_tts.exceptions.NoAudioReceived:
         print('No audio received!')
         return False
 
+    # Convert saved .mp3 file to .bik file to be useable ingame 
     success = await convert_to_bik(path, position)
 
+    # Delete previously created temporary .mp3 file
     try:
         delete_file(path)
     except FileNotFoundError:
@@ -112,11 +124,7 @@ class Server(BaseHTTPRequestHandler):
                 parsed = urlparse(self.path)
                 params = parse_qs(parsed.query)
 
-                # print(params)
-                # print(type(params['message'][0]))
-                # print(type(params['voice'][0]))
-                # print(type(int(params['position'][0])))
-
+                # Parse query
                 try:
                     message = params['message'][0]
                     voice = params['voice'][0]
@@ -127,6 +135,7 @@ class Server(BaseHTTPRequestHandler):
                     self.end_headers()
                     return 
                 
+                # Create TTS file with parsed query as parameters
                 success = asyncio.run(generate_tts(message, voice, position))
 
                 if success:
@@ -155,12 +164,14 @@ def is_game_open():
         return True
 
 def launch_game():
+    # Dont start again if the game is already loaded up
     global HAS_LAUNCHED
     if HAS_LAUNCHED:
         if is_game_open():
             print('Titanfall is already running!')
             return False
 
+    # Start the game with the steam launch args included
     try:
         args = sys.argv[1:]
         subprocess.Popen(
@@ -172,10 +183,10 @@ def launch_game():
         print('Could not launch game!! Is this file in the correct directory? Did you rename the original .exe?')
         return False
 
-# http://127.0.0.1:2222
 def start_listener():
     print('Listening on http://127.0.0.1:2222')
 
+    # Start listener server and keep alive in the background on port 2222
     global SERVER 
     SERVER = HTTPServer(('127.0.0.1', 2222), Server)
     SERVER.serve_forever()
@@ -183,6 +194,8 @@ def start_listener():
     print('Listener closed')
 
 def close_server_monitor():
+    # Close listener server and end script if theres no 'Titanfall2.exe' process to be found in the tasklist
+    # Poll every 5 seconds
     while True:
         time.sleep(5)
         if not is_game_open():
@@ -201,9 +214,12 @@ def main():
         global HAS_LAUNCHED
         HAS_LAUNCHED = True
 
+        # Monitor in background
         threading.Thread(target=close_server_monitor).start()
+
+        # Start listener server (blocking)
         start_listener()
-        print('Script finished')
+        print('Main finished')
     
 if __name__ == '__main__':
     main()
