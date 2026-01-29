@@ -1,7 +1,14 @@
 untyped
 global function chaTTS_Init
 
-const string URL_LISTENER = "http://127.0.0.1:2222/" // has to match url and port as defined in the exe_wrapper
+//           .__         _______________________________
+//      ____ |  |__ _____\__    ___/\__    ___/   _____/
+//    _/ ___\|  |  \\__  \ |    |     |    |  \_____  \ 
+//    \  \___|   Y  \/ __ \|    |     |    |  /        \
+//     \___  >___|  (____  /____|     |____| /_______  /
+//         \/     \/     \/                          \/ 
+
+const string URL_LISTENER = "http://127.0.0.1:2222/" // URL has to match url and port as defined in the exe_wrapper
 const table<int, string> voiceIndex = {
 	[0] = "cv_chaTTS_uniform_voice",
 	[1] = "cv_chaTTS_self_voice",
@@ -17,12 +24,12 @@ void function debugPrint( string text ){
 }
 
 void function chaTTS_Init(){
-	dtool_loadFriendsAndParty() // this requires the dtools !!
+	dtool_loadFriendsAndParty() // This requires the dtools !!
 	AddCallback_OnReceivedSayTextMessage( chathook )
 	debugPrint( "Initialized! :-)" )
 }
 
-bool function makeTTS( int voiceIndex, string voice, string text ){
+bool function makeTTS( int voiceIndex, string voice, bool censor, string text ){
     table state = {
         finished = false,
         successful = false
@@ -36,6 +43,8 @@ bool function makeTTS( int voiceIndex, string voice, string text ){
     request.queryParameters[ "message" ]  <- [ text ]
 	request.queryParameters[ "voice" ] 	  <- [ voice ]
 	request.queryParameters[ "position" ] <- [ voiceIndex.tostring() ]
+	request.queryParameters[ "censor" ]   <- [ censor.tostring() ]
+
 
     void functionref( HttpRequestResponse ) onSuccess = void function ( HttpRequestResponse response ) : ( state ){
         debugPrint( "Request was successful" )
@@ -58,6 +67,7 @@ bool function makeTTS( int voiceIndex, string voice, string text ){
 
     NSHttpRequest( request, onSuccess, onFailure )
 	
+	// Wait until we got a response
     while( !state.finished )
         wait 0
 	
@@ -67,31 +77,31 @@ bool function makeTTS( int voiceIndex, string voice, string text ){
 ////////////////////////////////////////////////////////////////////////////////////
 
 int function getVoiceIndexForPlayer( ClClient_MessageStruct ms ){
-	// uniform
+	// Uniform
 	if( GetConVarBool( "cv_chaTTS_use_uniform_voice" ) )
 		return 0
 
-	// same priority as ccmuv2
-	// self
+	// Same priority as ccmuv2
+	// Self
 	if( ms.player == GetLocalClientPlayer() )
 		return 1
 
-	// party
+	// Party
 	if( dtool_inParty( ms.player.GetPlayerName() ) )
 		return 2
 
-	// friend
+	// Friend
 	if( dtool_isFriend( ms.player.GetPlayerName() ) )
 		return 3
 
-	// teamchat
+	// Teamchat
 	if( ms.isTeam )
 		return 4
 
-	// opp
+	// Opp
 	if( dtool_isEnemy( ms.player ) )
 		return 5
-	else // ally
+	else // Ally
 		return 6
 
 	// Fallback

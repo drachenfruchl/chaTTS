@@ -21,6 +21,11 @@
 	],
 	"ConVars": [
 		{
+			"Name": "cv_chaTTS_censor",
+			"DefaultValue": "0",
+			"Flags": 16777216
+		},
+		{
 			"Name": "cv_chaTTS_use_uniform_voice",
 			"DefaultValue": "1",
 			"Flags": 16777216

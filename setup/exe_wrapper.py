@@ -7,6 +7,8 @@ import time
 import edge_tts
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse, parse_qs
+from better_profanity import profanity
+import re
 
 # Change this path if you have a different installation location
 # escaped backslashes are crucial !!
@@ -82,7 +84,31 @@ async def convert_to_bik(input: str, position: int):
 
     return True
 
-async def generate_tts(text: str, voice: str, position: int):
+def create_beep(length: int):
+    # Return a beep of according length
+    # Fuck -> Beep
+    # Faggot -> Beeeep
+    if length <= 2:
+        return 'beep'
+    return 'b' + ('e' * (length - 2)) + 'p'
+
+def beep(text: str):
+    def replace_word(match):
+        word = match.group()
+        if profanity.contains_profanity(word):
+            return create_beep(len(word))
+        return word
+    
+    # Regex search and replacement
+    pattern = r'\b\w+\b'
+    result = re.sub(pattern, replace_word, text, flags=re.IGNORECASE)
+    return result
+
+async def generate_tts(text: str, voice: str, censor: bool, position: int):
+    # Optionally replace profanity with beeps
+    if censor:
+        text = beep(text)
+
     # Get TTS
     try:
         communicate = edge_tts.Communicate(text, voice)
@@ -129,6 +155,7 @@ class Server(BaseHTTPRequestHandler):
                     message = params['message'][0]
                     voice = params['voice'][0]
                     position = int(params['position'][0])
+                    should_censor = (params['censor'] == 'True')
                 except:
                     print('Error while converting query types')
                     self.send_response(400)
@@ -136,7 +163,7 @@ class Server(BaseHTTPRequestHandler):
                     return 
                 
                 # Create TTS file with parsed query as parameters
-                success = asyncio.run(generate_tts(message, voice, position))
+                success = asyncio.run(generate_tts(message, voice, should_censor, position))
 
                 if success:
                     print('Successfully created TTS')
@@ -213,7 +240,7 @@ def main():
     if launch_game():
         global HAS_LAUNCHED
         HAS_LAUNCHED = True
-
+        
         # Monitor in background
         threading.Thread(target=close_server_monitor).start()
 
