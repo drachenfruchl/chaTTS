@@ -1,13 +1,54 @@
+// @drachenfruchl
+// DC @elektrodrache 
+
+// !! Mod requires dtools !!
+
 untyped
 global function chaTTS_Init
 
-//           .__         _______________________________
-//      ____ |  |__ _____\__    ___/\__    ___/   _____/
-//    _/ ___\|  |  \\__  \ |    |     |    |  \_____  \ 
-//    \  \___|   Y  \/ __ \|    |     |    |  /        \
-//     \___  >___|  (____  /____|     |____| /_______  /
-//         \/     \/     \/                          \/ 
+// Console logo
+const LogoData LD = {
+	logo = [
+		"                                 ,-",
+		"                               ,'::|",
+		"                              /::::|",
+		"                            ,'::::o\\                                      _..",
+		"         ____........-------,..::?88b                                  ,-' /",
+		" _.--''''. . . .      .   .  .  .  ''`-._                           ,-' .;'",
+		"<. - :::::o......  ...   . . .. . .  .  .''--._                  ,-'. .;'",
+		" `-._  ` `':`:`:`::||||:::::::::::::::::.:. .  ''--._ ,'|     ,-'.  .;'",
+		"     '''_=--       //'   .. ````:`:`::::::::::.:.:.:. .`-`._-'.   .;'",
+		"         ''--.__     P(       \\               ` ``:`:``:::: .   .;'",
+		"                '\\''--.:-.     `.                             .:/",
+		"                  \\. /    `-._   `.''-----.,-..::(--''.\\''`.  `:\\",
+		"                   `P         `-._ \\          `-:\\          `. `:\\",
+		"                                   ''            '            `-._)",
 
+		"              .__         _______________________________",
+		"         ____ |  |__ _____\\__    ___/\\__    ___/   _____/",
+		"       _/ ___\\|  |  \\\\__  \\ |    |     |    |  \\_____  \\ ",
+		"       \\  \\___|   Y  \\/ __ \\|    |     |    |  /        \\",
+		"        \\___  >___|  (____  /____|     |____| /_______  /",
+		"            \\/     \\/     \\/                          \\/ "
+	]
+	color_start = < 203, 174, 212 >
+	color_end = < 93, 78, 96 >
+}
+// Logo in the chat
+// Why does this have to be so fucked in comparison
+const LogoData LDC = {
+	logo = [
+		"	                       .__                        __________________ 		        	   ,|      ",
+		"       ____  |         |_ _____\\_       _/\\_        _/      _____/ 		       	  	/ :. - '",
+		"  _/  ___\\|         |   \\\\__       \\    |       |          |        |    \\_____     \\ 		      ._.-'                  ",
+		"  \\    \\___|           Y   \\/    __   \\  |       |          |        |    /                         \\ 		 .-'       	           _ .",
+		"    \\___    >___|    (____    /__ |           |__|  /_______   / 		'-.o_)))_(    ;'",
+		"                 \\/              \\/               \\/                                                             \\/ 		          	   '. |",
+		""
+	]
+	color_start = < 203, 174, 212 >
+	color_end = < 93, 78, 96 >
+}
 const string URL_LISTENER = "http://127.0.0.1:2222/" // URL has to match url and port as defined in the exe_wrapper
 const table<int, string> voiceIndex = {
 	[0] = "cv_chaTTS_uniform_voice",
@@ -24,32 +65,34 @@ void function debugPrint( string text ){
 }
 
 void function chaTTS_Init(){
-	dtool_loadFriendsAndParty() // This requires the dtools !!
+	dtool_printLogo( LD )
+	dtool_loadFriendsAndParty() 
 	AddCallback_OnReceivedSayTextMessage( chathook )
+	dtool_waitForValidGamestate( 1, printCLogo )
 	debugPrint( "Initialized! :-)" )
 }
 
 bool function makeTTS( int voiceIndex, string voice, bool censor, string text ){
-    table state = {
-        finished = false,
-        successful = false
-    }
+	table state = {
+		finished = false,
+		successful = false
+	}
 
-    HttpRequest request
-    request.method = HttpRequestMethod.POST
-    request.url = URL_LISTENER + "/makeTTS"
+	HttpRequest request
+	request.method = HttpRequestMethod.POST
+	request.url = URL_LISTENER + "/makeTTS"
 
 	// Send data to get processed
-    request.queryParameters[ "message" ]  <- [ text ]
+	request.queryParameters[ "message" ]  <- [ text ]
 	request.queryParameters[ "voice" ] 	  <- [ voice ]
 	request.queryParameters[ "position" ] <- [ voiceIndex.tostring() ]
 	request.queryParameters[ "censor" ]   <- [ censor.tostring() ]
 
 
-    void functionref( HttpRequestResponse ) onSuccess = void function ( HttpRequestResponse response ) : ( state ){
-        debugPrint( "Request was successful" )
+	void functionref( HttpRequestResponse ) onSuccess = void function ( HttpRequestResponse response ) : ( state ){
+		debugPrint( "Request was successful" )
 	
-        state.finished = true
+		state.finished = true
 		if( response.statusCode == 200 )
 			state.successful = true
 		else 
@@ -57,21 +100,21 @@ bool function makeTTS( int voiceIndex, string voice, bool censor, string text ){
 	}
 
 	// Server throws an error if e.g the voice is not valid
-    void functionref( HttpRequestFailure ) onFailure = void function ( HttpRequestFailure failure ) : ( state ){
-        debugPrint( "Request was *not* successful" )
-        debugPrint( format( "[%i] Failed to send request to listener server: %s", failure.errorCode, failure.errorMessage ) )
+	void functionref( HttpRequestFailure ) onFailure = void function ( HttpRequestFailure failure ) : ( state ){
+		debugPrint( "Request was *not* successful" )
+		debugPrint( format( "[%i] Failed to send request to listener server: %s", failure.errorCode, failure.errorMessage ) )
 
-        state.finished = true
+		state.finished = true
 		state.successful = false
-    }
+	}
 
-    NSHttpRequest( request, onSuccess, onFailure )
+	NSHttpRequest( request, onSuccess, onFailure )
 	
 	// Wait until we got a response
-    while( !state.finished )
-        wait 0
+	while( !state.finished )
+		wait 0
 	
-    return expect bool( state.successful )
+	return expect bool( state.successful )
 } 
 
 ////////////////////////////////////////////////////////////////////////////////////
@@ -128,13 +171,18 @@ void function playTTS( int voiceIndex ){
 
 ////////////////////////////////////////////////////////////////////////////////////
 
+void function printCLogo(){
+	dtool_printLogo_chat( LDC )
+}
+
 ClClient_MessageStruct function chathook( ClClient_MessageStruct ms ){
 	// Get the right voice for the player and config
 	int voiceIndex = getVoiceIndexForPlayer( ms )
 	string voice = getVoiceFromIndex( voiceIndex )
+	bool censor = GetConVarBool( "cv_chaTTS_censor" )
 
 	// Try to send request to create TTS file
-	bool successful = makeTTS( voiceIndex, voice, ms.message )
+	bool successful = makeTTS( voiceIndex, voice, censor, ms.message )
 	if( successful )
 		playTTS( voiceIndex )
 

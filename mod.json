@@ -8,7 +8,7 @@
 			"Path": "chaTTS.nut",
 			"RunOn": "MP && CLIENT",
             "ClientCallback": {
-				"Before": "chaTTS_Init"
+				"After": "chaTTS_Init"
 			}
 		},
 		{

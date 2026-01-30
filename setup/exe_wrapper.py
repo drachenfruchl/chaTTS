@@ -10,6 +10,8 @@ from urllib.parse import urlparse, parse_qs
 from better_profanity import profanity
 import re
 
+###########################################################################################################################
+
 # Change this path if you have a different installation location
 # escaped backslashes are crucial !!
 MEDIA_FOLDER_PATH = 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Titanfall2\\R2Northstar\\mods\\chatts\\mod\\media'
@@ -155,7 +157,7 @@ class Server(BaseHTTPRequestHandler):
                     message = params['message'][0]
                     voice = params['voice'][0]
                     position = int(params['position'][0])
-                    should_censor = (params['censor'] == 'True')
+                    should_censor = (params['censor'][0] == 'true')
                 except:
                     print('Error while converting query types')
                     self.send_response(400)
@@ -185,7 +187,7 @@ class Server(BaseHTTPRequestHandler):
 
 def is_game_open():
     try:
-        return 'Titanfall2.exe' in subprocess.check_output('tasklist').decode('UTF-8')
+        return 'Titanfall2_real.exe' in subprocess.check_output(args='tasklist', creationflags=subprocess.CREATE_NO_WINDOW).decode('UTF-8')
     except subprocess.CalledProcessError:
         print('subprocess.CalledProcessError')
         return True
@@ -250,4 +252,3 @@ def main():
     
 if __name__ == '__main__':
     main()
-    input()

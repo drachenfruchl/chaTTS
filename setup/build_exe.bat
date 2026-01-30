@@ -1,6 +1,6 @@
 @echo off
 
-pyinstaller ./exe_wrapper.py --noconsole --onefile --clean --name Titanfall2 --icon ./icon.ico
+pyinstaller ./exe_wrapper.py --noconsole --onefile --clean --name Titanfall2 --icon ./icon.ico --collect-all better_profanity
 cls
 
 echo Wrapper created (dist/Titanfall2.exe) 
