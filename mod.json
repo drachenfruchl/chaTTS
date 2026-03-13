@@ -1,0 +1,69 @@
+{
+	"Name": "[chaTTS] Chat TTS",
+	"Description": "[@drachenfruchl]\n\nOutput chat using TTS",
+	"LoadPriority": 69420,
+	"Version": "1.0.0",
+	"Scripts": [
+		{
+			"Path": "chaTTS.nut",
+			"RunOn": "MP && CLIENT",
+            "ClientCallback": {
+				"After": "chaTTS_Init"
+			}
+		},
+		{
+			"Path": "chaTTSSettings.nut",
+			"RunOn": "UI",
+			"UICallback": {
+				"Before": "chaTTSSettings_Init"
+			}
+		}
+	],
+	"ConVars": [
+		{
+			"Name": "cv_chaTTS_censor",
+			"DefaultValue": "0",
+			"Flags": 16777216
+		},
+		{
+			"Name": "cv_chaTTS_use_uniform_voice",
+			"DefaultValue": "1",
+			"Flags": 16777216
+		},
+		{
+			"Name": "cv_chaTTS_uniform_voice",
+			"DefaultValue": "en-US-GuyNeural",
+			"Flags": 16777216
+		},
+		{
+			"Name": "cv_chaTTS_team_voice",
+			"DefaultValue": "en-US-GuyNeural",
+			"Flags": 16777216
+		},
+		{
+			"Name": "cv_chaTTS_ally_voice",
+			"DefaultValue": "en-US-GuyNeural",
+			"Flags": 16777216
+		},
+		{
+			"Name": "cv_chaTTS_self_voice",
+			"DefaultValue": "en-US-GuyNeural",
+			"Flags": 16777216
+		},
+		{
+			"Name": "cv_chaTTS_friend_voice",
+			"DefaultValue": "en-US-GuyNeural",
+			"Flags": 16777216
+		},
+		{
+			"Name": "cv_chaTTS_party_voice",
+			"DefaultValue": "en-US-GuyNeural",
+			"Flags": 16777216
+		},
+		{
+			"Name": "cv_chaTTS_opp_voice",
+			"DefaultValue": "en-US-GuyNeural",
+			"Flags": 16777216
+		}
+	]
+}
